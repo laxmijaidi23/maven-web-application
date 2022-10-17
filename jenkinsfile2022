@@ -23,7 +23,7 @@ catch (e) {
   } //catch closing
   finally {
     // Success or failure, always send notifications
-    notifyBuild(currentBuild.result)
+    slacknotifications(currentBuild.result)
   }//finally closing
 /* stage ('ExecuteSonarQubeReport') {
 sh " ${mavenHome}/bin/mvn clean sonar:sonar "
