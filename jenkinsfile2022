@@ -1,9 +1,12 @@
 node{
+try{
+def mavenHome = tool name: 'maven3.8.6'
+
     echo "The job name is : ${env.Job_NAME}"
     echo "The node name is: ${env.NODE_NAME}"
     echo "The build number is:${env.BUILD_NUMBER}"
  properties([buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '3', numToKeepStr: '5')), [$class: 'JobLocalConfiguration', changeReasonComment: ''], pipelineTriggers([pollSCM('* * * * *')])])
- def mavenHome = tool name: 'maven3.8.6'
+ 
  stage ('checkout coade')
  {   
 git branch: 'development', credentialsId: '5b86a1bd-3c80-46da-86c4-bf0b1edb4dc8', url: 'https://github.com/laxmijaidi23/maven-web-application.git'
@@ -12,7 +15,17 @@ git branch: 'development', credentialsId: '5b86a1bd-3c80-46da-86c4-bf0b1edb4dc8'
 {
 sh "${mavenHome}/bin/mvn clean package"
 } 
-stage ('ExecuteSonarQubeReport') {
+}//try closing
+catch (e) {
+    // If there was an exception thrown, the build failed
+    currentBuild.result = "FAILED"
+    throw e
+  } //catch closing
+  finally {
+    // Success or failure, always send notifications
+    notifyBuild(currentBuild.result)
+  }//finally closing
+/* stage ('ExecuteSonarQubeReport') {
 sh " ${mavenHome}/bin/mvn clean sonar:sonar "
 }
 
@@ -23,5 +36,31 @@ stage ('DeployAppIntoTomcatServer'){
 sshagent(['af66773f-f959-4e9f-b3eb-7cd50e9c6228']) {
    sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@172.31.20.43:/opt/apache-tomcat-9.0.65/webapps/"
 }
-}
+} */
+
+} //node closing
+def slacknotifications(String buildStatus = 'STARTED') {
+  // build status of null means successful
+  buildStatus =  buildStatus ?: 'SUCCESSFUL'
+
+  // Default values
+  def colorName = 'RED'
+  def colorCode = '#FF0000'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    color = 'YELLOW'
+    colorCode = '#FFFF00'
+  } else if (buildStatus == 'SUCCESSFUL') {
+    color = 'GREEN'
+    colorCode = '#00FF00'
+  } else {
+    color = 'RED'
+    colorCode = '#FF0000'
+  }
+
+  // Send notifications
+  slackSend (color: colorCode, message: summary)
 }
